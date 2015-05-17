@@ -2,7 +2,7 @@
 
 ## Loading and preprocessing the data
 ```{r setoptions, echo=TRUE}
-
+library(ggplot2)
 #Assume the activity.csv was placed at the same directory as this Rmarkdown file.
 data = read.csv("activity.csv", header=TRUE, sep=",", na.strings="NA")
 
@@ -18,59 +18,41 @@ dataTidy = data[!is.na(data$steps), ]
 #calculate the total sum of steps w.r.t. the date
 sumStep = aggregate(steps~date, dataTidy, sum)
 #plot graph
-hist(sumStep$steps, col="red", main="Total number of steps taken each day", xlab="Steps Per Day")
-
+ggplot(dataTidy, aes(date, steps)) + geom_bar(stat = "identity", colour = "steelblue", fill = "steelblue", width = 0.7) + labs(title = "Histogram of Total Number of Steps Taken Each Day", x = "Date", y = "Total number of steps")
 #disable scientific notation
 options(scipen=999)
 #calculate the mean and median total number of steps taken per day
 meanStep = mean(sumStep$steps)
 medianStep = median(sumStep$steps)
-
+meanStep
+medianStep
 ```
-
-
-* The __mean__ total number of steps taken per day: _`r meanStep`_
-* The __median__ total number of steps taken per day: _`r medianStep`_
 
 
 ## What is the average daily activity pattern?
-
+1. Make a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 ``` {r part3}
-## create time series plot of the 5-minute interval and
-##  the average number of steps taken
-
-#calculate the average of steps w.r.t. the time interval
 avgStep = aggregate(steps~interval, dataTidy, mean)
 
 #plot graph
-#plot(avgStep$step, type="l", xaxt="n", xlab="5-minute interval identifiers", main="Average number of steps across all days", ylab="Average number of steps")
-
-#get the interval list
-plot(avgStep$interval, avgStep$step, type="l",xlab="5-minute interval identifiers", ylab="Steps", main="Average number of steps across all days")
-
-#check which 5-minute interval contains the maximum number of steps
-maxIdx = which.max(avgStep$steps)
-maxInterval = avgStep[maxIdx, 'interval']
-maxAvgStep = avgStep[maxIdx, 'steps']
-
+plot(avgStep$step, type="l", xaxt="n", xlab="5-minute intervals", main="Time Series Plot of the 5-minute Interval", ylab="Average Number of Steps Taken")
 ```
-* On average across all the days in the dataset, __`r maxInterval`__ 5-minute interval contains maximum number of steps (_`r maxAvgStep`_ steps)
+
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+maxIdx = which.max(avgStep$steps)
+avgStep[maxIdx, c('steps', 'interval')]
+```
 
 ## Imputing missing values
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
 ``` {r part4_0}
-#calulate the total number of missing values in the dataset
-totalNA = sum(is.na(data$steps))
-
+sum(is.na(data$steps))
 ```
-* The total number of missing values in the dataset: __`r totalNA`__
-
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.  
 To filling all of the missing values in the dataset, I adopted the strategy: using mean of 5-minute interval
-
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
 ``` {r part4}
-
-#filling all of the missing values in the dataset
-# STRATEGY: using mean of 5 minute interval
-
 #get the NA index
 naIdx = which(is.na(data$steps))
 naInterval = data[naIdx, 3] #get the corrosponding intervale
@@ -80,21 +62,21 @@ fillSteps = sapply(naInterval, function(x) { avgStep[(avgStep$interval==x), 2]})
 # BUT with the missing data filled in
 dataNew = data
 dataNew[naIdx, 'steps'] = fillSteps #fill in missing data
-
-#again, calculate the average of steps w.r.t. the time interval
-sumStepNew = aggregate(steps~date, dataNew, sum)
-#plot graph
-hist(sumStepNew$steps, col="red", main="Total number of steps taken each day \n (new dataset filled missing data)", xlab="Total Number of Steps")
-
+head(dataNew)
+sum(is.na(dataNew$steps))
+```
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r}
+ggplot(dataNew, aes(date, steps)) + geom_bar(stat = "identity", colour = "steelblue", fill = "steelblue", width = 0.7) + labs(title = "Histogram of Total Number of Steps Taken Each Day (No missing data)", x = "Date", y = "Total number of steps")
+```
+```{r}
 #calculate the mean and median total number of steps taken per day
+sumStepNew = aggregate(steps~date, dataNew, sum)
 meanStepNew = mean(sumStepNew$steps)
 medianStepNew = median(sumStepNew$steps)
+meanStepNew
+medianStepNew
 ```
-
-### After filling the missing values
-* The __mean__ total number of steps taken per day: _`r meanStepNew`_
-* The __median__ total number of steps taken per day: _`r medianStepNew`_
-
 The mean number of steps taken per day are the same (`r meanStepNew`).
 But, the median number of steps taken per day are slightly different (before filling missing data: `r medianStep`, after filling missing data: `r medianStepNew`). It is probably due to filling missing values by the mean of 5 minute interval.
 
@@ -102,11 +84,12 @@ But, the median number of steps taken per day are slightly different (before fil
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
 ```{r part5}
-#create a new factor variable "dateIs" with two levels "Weekday" and "weekend"
 dataNew['dateIs'] = factor(sapply(dataNew$date, function(x){ if (weekdays(x) == "Sunday" | weekdays(x) == "Saturday") { "weekend" } else { "weekday"} }))
-
-#calculate the average of steps w.r.t. the time interval and dateIs
+```
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+```{r}
 avgStepDateIs = aggregate(steps~interval + dateIs, mean, data=dataNew)
 
 library(lattice)
